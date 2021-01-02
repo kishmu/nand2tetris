@@ -1,0 +1,12 @@
+class Main {
+  function void main() {
+    var Game game;
+    do Output.printString("Lets play Tic Tac Toe! Board is numbered 1-9 left to right, top to bottom");
+    do Output.println();
+    do Output.println();
+    let game = Game.new();
+    do game.run();
+    do game.dispose();
+    return;
+  }
+}

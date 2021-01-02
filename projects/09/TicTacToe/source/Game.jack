@@ -1,0 +1,82 @@
+/** Implements the tic-tac-toe game play */
+class Game {
+  field Board board;
+  constructor Game new() {
+    let board = Board.new(200, 75, 150); // position (200,75) and size 150px
+    do board.drawBoard();
+    return this;
+  }
+
+  method void dispose() {
+    do board.dispose();
+    do Memory.deAlloc(this);
+    return;
+  }
+
+  /** runs the game */
+  method void run() {
+    var boolean winner, player, isEmpty;
+    var char key;
+    var int turns;
+
+    let winner = false;
+    let player = true;
+    let isEmpty = false;
+
+    do Output.printString("Press [1-9] Player A :");
+    
+    let turns = 0;
+    while(~winner & (turns < 9)) {
+      // player turn
+      let player = ~player; // switch player
+      do Output.backSpace();
+      do Output.backSpace();
+      do Output.backSpace();
+      if (~player) {
+        do Output.printString("A :");
+      }
+      if (player) {
+        do Output.printString("B :");
+      }
+
+      while(~isEmpty) {
+        // wait for key 1-9 pressed
+        while ((key < 49) | (key > 57)) {
+          let key = Keyboard.readChar();
+          do Output.backSpace();
+        }
+        // retry if user entered into a non-empty slot
+        let isEmpty = board.isEmpty(key - 49);
+        if (~isEmpty) { 
+          let key = 0; // reset key and try again
+        } 
+      }
+      
+      let isEmpty = false; // reset
+      let winner = board.addMove(player, key - 49); // add the move
+      let turns = turns + 1; // keep a count of the turns so far
+    }
+
+    // We now have a winner or tie
+
+    // Move cursor into the board area
+    do Output.moveCursor(11, 27);
+    
+    if (winner & player) {
+      do Output.printString(" Player B wins! ");
+    }
+
+    if (winner & ~player) {
+      do Output.printString(" Player A wins! ");
+    }
+
+    if (~winner) {
+      do Output.printString("  Game tied! ");
+    }
+
+    do Output.moveCursor(15, 30);
+    do Output.printString("Game over");
+
+    return;
+  }
+}

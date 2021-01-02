@@ -1,0 +1,162 @@
+/** Implements the square tic-tac-toe board */
+class Board {
+  field Array board; // array of 9 (3x3) slots. Filled by player number A (false) or B (true)
+  field int x, y, length; // x and y are of top left corner amd length is the size of the square
+                          // all in Screen px
+  field int playerSize; // size of player markers for drawing
+
+  /** Constructs a new board */
+  /** ax and ay is of the top left corner. Size is the length of the square */
+  constructor Board new(int ax, int ay, int size) {
+    var int i, blocksize;
+    let board = Array.new(9); // 3x3 slots
+    
+    // initialize the board to 1 (empty)
+    let i = 0;
+    while (i < 9) {
+      let board[i] = 1;
+      let i = i + 1;
+    }
+
+    let x = ax;
+    let y = ay;
+    let blocksize = size / 3;
+    let length = blocksize * 3; // length to exact multiple of 3
+
+    let playerSize = blocksize / 8;
+    return this;
+  }
+
+  method void dispose() {
+    do board.dispose();
+    do Memory.deAlloc(this);
+    return;
+  }
+
+  /** Draw a square board */
+  method void drawBoard() {
+    var int boxsize, i, step;
+    let boxsize = length / 3;
+
+    let i = 0;
+    while (i < 4) {
+      let step = i * boxsize;
+      // horizontal
+      do Screen.drawLine(x, y + step, x + length, y + step);  
+      // vertical
+      do Screen.drawLine(x + step, y, x + step, y + length);        
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+  method boolean isEmpty(int position) {
+    if (board[position] = 1) {
+      return true;
+    }
+    return false;
+  }
+
+  // Draw the player moves
+  // player - {false}/{true}. Circle for player {false} and Square player {true}
+  // poition is 0-8 in the board
+  method void drawMove(boolean player, int position) {
+    var int centerX, centerY, row, column, blocksize;
+    let row = position / 3;
+    let column = position - (row * 3);
+    let blocksize = length / 3;
+
+    let centerX = x + (blocksize / 2) + (column * blocksize);
+    let centerY = y + (blocksize / 2) + (row * blocksize);
+
+    if (~player) {
+      do Screen.drawCircle(centerX, centerY, playerSize);
+    }
+    if (player) {
+      do Screen.drawRectangle(centerX - playerSize, centerY - playerSize, centerX + playerSize, centerY + playerSize);
+    }
+    return;
+  }
+
+  // method to find of the 3 positions (array -a) result in a winner
+  method boolean isStrike(Array a) {
+    var boolean result;
+    if (board[a[0]] = 1 | board[a[1]] = 1 | board[a[2]] = 1) {
+      // at least one of the slots is empty
+      return false;
+    }
+    if ((board[a[0]] = board[a[1]]) & (board[a[1]] = board[a[2]])) {
+      return true;
+    }
+    return false;
+  }
+
+  // do we have a winner?
+  method boolean isWinner() {
+    // Not an efficient check 
+    // Todo: Improvement - use the last entered player position to reduce calls to isStrike
+    var Array a;
+    let a = Array.new(3);
+
+    // [0, 1, 2] - row top
+    let a[0] = 0; let a[1] = 1; let a[2] = 2;
+    if (isStrike(a)) {
+      return true;
+    }
+
+    // [0, 3, 6] - col left
+    let a[0] = 0; let a[1] = 3; let a[2] = 6;
+    if (isStrike(a)) {
+      return true;
+    }
+
+    // [0, 4, 8] - diag N-W
+    let a[0] = 0; let a[1] = 4; let a[2] = 8;
+    if (isStrike(a)) {
+      return true;
+    }
+
+    // [1, 4, 7] - col middle
+    let a[0] = 1; let a[1] = 4; let a[2] = 7;
+    if (isStrike(a)) {
+      return true;
+    }
+
+    // [3, 4, 5] - row middle
+    let a[0] = 3; let a[1] = 4; let a[2] = 5;
+    if (isStrike(a)) {
+      return true;
+    }
+    
+    // [2, 4, 6] - diag N-E
+    let a[0] = 2; let a[1] = 4; let a[2] = 6;
+    if (isStrike(a)) {
+      return true;
+    }
+    
+    // [2, 5, 8] - col right
+    let a[0] = 2; let a[1] = 5; let a[2] = 8;
+    if (isStrike(a)) {
+      return true;
+    }
+    
+    // [6, 7, 8] - row bottom
+    let a[0] = 6; let a[1] = 7; let a[2] = 8;
+    if (isStrike(a)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Add a move for the player
+  // Returns true if the player won
+  method boolean addMove(boolean player, int position) {
+    var boolean winner;
+    let board[position] = player;
+    do drawMove(player, position);
+    let winner = isWinner();
+    return winner;
+  }
+}
