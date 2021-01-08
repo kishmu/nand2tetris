@@ -2,6 +2,10 @@
 
 const fs = require('fs');
 
+const OPS = new Set(['+', '-', '*', '/', '&', '|', '<', '>', '=']);
+const UNARYOPS = new Set(['-', '~']);
+const KWCONSTS = new Set(['true', 'false', 'null', 'this']);
+
 const LexicalElements = {
   keyword: new Set([
     'class',
@@ -205,4 +209,4 @@ function testTokenizer(f) {
 // const fileToParse = process.argv[2] || '../Square/Main.jack';
 // console.log(testTokenizer(fileToParse));
 
-module.exports = { JackTokenizer };
+module.exports = { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS, XML_RESERVED_CHAR };
