@@ -206,7 +206,4 @@ function testTokenizer(f) {
   return output.join('\n');
 }
 
-// const fileToParse = process.argv[2] || '../Square/Main.jack';
-// console.log(testTokenizer(fileToParse));
-
 module.exports = { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS, XML_RESERVED_CHAR };

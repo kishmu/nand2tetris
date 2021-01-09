@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+const fs = require('fs');
 const { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS, XML_RESERVED_CHAR } = require('./JackTokenizer');
 
 function XML(value) {
-  if (this.XML_RESERVED_CHAR.hasOwnProperty(value)) {
+  if (XML_RESERVED_CHAR.hasOwnProperty(value)) {
     value = XML_RESERVED_CHAR[value];
   }
   return value;
@@ -22,7 +23,7 @@ class CompilationEngine {
 
     this.formatXMLOutput();
 
-    console.log(this.output.join('\n'));
+    fs.writeFileSync(output, this.output.join('\n') + '\n');
   }
 
   formatXMLOutput() {
@@ -35,7 +36,7 @@ class CompilationEngine {
       if (onlyEndTag) {
         indent--;
       }
-      x = `${Array(indent).fill(twoSpaces).join('') + x}`; // add indent
+      x = `${Array(indent).fill(twoSpaces).join('') + x}`; // indent the line
       if (onlyStartTag) {
         indent++;
       }
@@ -48,13 +49,13 @@ class CompilationEngine {
       class: 'class' className '(' classVarDec* subroutineDec* '}'
     */
     this.eatKeyword('class');
-    this.output.push(`<keyword>class</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'class');
 
     const className = this.eatIdentifier();
-    this.output.push(`<identifier>${className}</identifier>`);
+    this.writeXML(TOKENTYPE.IDENTIFIER, className);
 
     this.eatSymbol('{');
-    this.output.push(`<symbol>{</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '{');
 
     let keyword;
     const FIELD = 'field';
@@ -77,7 +78,7 @@ class CompilationEngine {
     }
 
     this.eatSymbol('}');
-    this.output.push(`<symbol>}</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '}');
   }
 
   compileClassVarDec() {
@@ -90,32 +91,32 @@ class CompilationEngine {
     this.output.push(`<classVarDec>`);
     // static / field
     const staticOrField = this.eatKeyword();
-    this.output.push(`<keyword>${staticOrField}</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, staticOrField);
 
     // type
     if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
       const varType = this.eatKeyword(['int', 'char', 'boolean']);
-      this.output.push(`<keyword>${varType}</keyword>`);
+      this.writeXML(TOKENTYPE.KEYWORD, varType);
     } else {
       // className type
       const varType = this.eatIdentifier();
-      this.output.push(`<identifier>${varType}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varType);
     }
 
     // varName(',' varName)*
     while (this.tokenizer.tokenType() === TOKENTYPE.IDENTIFIER) {
       const varName = this.eatIdentifier();
-      this.output.push(`<identifier>${varName}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
       if (this.tokenizer.tokenType() === TOKENTYPE.SYMBOL && this.tokenizer.symbol() === ';') {
         break;
       }
       this.eatSymbol(',');
-      this.output.push(`<symbol>,</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, ',');
     }
 
     // ;
     this.eatSymbol(';');
-    this.output.push(`<symbol>;</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.output.push(`</classVarDec>`);
   }
@@ -135,35 +136,35 @@ class CompilationEngine {
 
     // constructor / function / method
     const funcType = this.eatKeyword();
-    this.output.push(`<keyword>${funcType}</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, funcType);
 
     // return type
     let returnType = this.tokenizer.tokenType() === TOKENTYPE.KEYWORD;
     if (returnType) {
       returnType = this.eatKeyword(['void', 'int', 'char', 'boolean']);
-      this.output.push(`<keyword>${returnType}</keyword>`);
+      this.writeXML(TOKENTYPE.KEYWORD, returnType);
     } else {
       // className type
       returnType = this.eatIdentifier();
-      this.output.push(`<identifier>${returnType}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, returnType);
     }
 
     const subroutineName = this.eatIdentifier();
-    this.output.push(`<identifier>${subroutineName}</identifier>`);
+    this.writeXML(TOKENTYPE.IDENTIFIER, subroutineName);
 
     this.eatSymbol('(');
-    this.output.push(`<symbol>(</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '(');
 
     this.compileParameterList();
 
     this.eatSymbol(')');
-    this.output.push(`<symbol>)</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ')');
 
     this.output.push(`<subroutineBody>`);
 
     // subroutineBody
     this.eatSymbol('{');
-    this.output.push(`<symbol>{</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '{');
 
     // varDec
     while (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD && this.tokenizer.keyWord() === 'var') {
@@ -173,7 +174,7 @@ class CompilationEngine {
     this.compileStatements();
 
     this.eatSymbol('}');
-    this.output.push(`<symbol>}</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '}');
 
     this.output.push(`</subroutineBody>`);
 
@@ -198,19 +199,19 @@ class CompilationEngine {
       let varType = this.tokenizer.tokenType() === TOKENTYPE.KEYWORD;
       if (varType) {
         varType = this.eatKeyword(['int', 'char', 'boolean']);
-        this.output.push(`<keyword>${varType}</keyword>`);
+        this.writeXML(TOKENTYPE.KEYWORD, varType);
       } else {
         // className type
         varType = this.eatIdentifier();
-        this.output.push(`<identifier>${varType}</identifier>`);
+        this.writeXML(TOKENTYPE.IDENTIFIER, varType);
       }
 
       const varName = this.eatIdentifier();
-      this.output.push(`<identifier>${varName}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.currentToken === ',') {
         this.eatSymbol(',');
-        this.output.push(`<symbol>,</symbol>`);
+        this.writeXML(TOKENTYPE.SYMBOL, ',');
       }
     }
 
@@ -225,33 +226,33 @@ class CompilationEngine {
     this.output.push(`<varDec>`);
 
     this.eatKeyword('var');
-    this.output.push(`<keyword>var</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'var');
 
     // type
     let varType = this.tokenizer.tokenType() === TOKENTYPE.KEYWORD;
     if (varType) {
       varType = this.eatKeyword(['int', 'char', 'boolean']);
-      this.output.push(`<keyword>${varType}</keyword>`);
+      this.writeXML(TOKENTYPE.KEYWORD, varType);
     } else {
       // className type
       varType = this.eatIdentifier();
-      this.output.push(`<identifier>${varType}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varType);
     }
 
     // type varName, type varName ...
     while (this.tokenizer.currentToken !== ';') {
       // varName
       const varName = this.eatIdentifier();
-      this.output.push(`<identifier>${varName}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.currentToken === ',') {
         this.eatSymbol(',');
-        this.output.push(`<symbol>,</symbol>`);
+        this.writeXML(TOKENTYPE.SYMBOL, ',');
       }
     }
 
     this.eatSymbol(';');
-    this.output.push(`<symbol>;</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.output.push(`</varDec>`);
   }
@@ -293,28 +294,31 @@ class CompilationEngine {
     this.output.push(`<doStatement>`);
 
     this.eatKeyword('do');
-    this.output.push(`<keyword>do</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'do');
 
     // subroutineName or (className|varName)
     const name = this.eatIdentifier();
-    this.output.push(`<identifier>${name}</identifier>`);
+    this.writeXML(TOKENTYPE.IDENTIFIER, name);
 
     if (this.tokenizer.currentToken === '(') {
       this.eatSymbol('(');
-      this.output.push(`<symbol>(</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '(');
     } else if (this.tokenizer.currentToken === '.') {
       this.eatSymbol('.');
-      this.output.push(`<symbol>.</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '.');
       const sn = this.eatIdentifier();
-      this.output.push(`<identifier>${sn}</identifier>`);
+      this.writeXML(TOKENTYPE.IDENTIFIER, sn);
       this.eatSymbol('(');
-      this.output.push(`<symbol>(</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '(');
     }
 
     this.compileExpressionList();
 
-    this.output.push(`<symbol>${this.eatSymbol(')')}</symbol>`);
-    this.output.push(`<symbol>${this.eatSymbol(';')}</symbol>`);
+    this.eatSymbol(')');
+    this.writeXML(TOKENTYPE.SYMBOL, ')');
+
+    this.eatSymbol(';');
+    this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.output.push(`</doStatement>`);
   }
@@ -326,28 +330,28 @@ class CompilationEngine {
     this.output.push(`<letStatement>`);
 
     this.eatKeyword('let');
-    this.output.push(`<keyword>let</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'let');
 
     const varName = this.eatIdentifier();
-    this.output.push(`<identifier>${varName}</identifier>`);
+    this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
     if (this.tokenizer.currentToken === '[') {
       this.eatSymbol('[');
-      this.output.push(`<symbol>[</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '[');
 
       this.compileExpression();
 
       this.eatSymbol(']');
-      this.output.push(`<symbol>]</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, ']');
     }
 
     this.eatSymbol('=');
-    this.output.push(`<symbol>=</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '=');
 
     this.compileExpression();
 
     this.eatSymbol(';');
-    this.output.push(`<symbol>;</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.output.push(`</letStatement>`);
   }
@@ -359,23 +363,23 @@ class CompilationEngine {
     this.output.push(`<whileStatement>`);
 
     this.eatKeyword('while');
-    this.output.push(`<keyword>while</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'while');
 
     this.eatSymbol('(');
-    this.output.push(`<symbol>(</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '(');
 
     this.compileExpression();
 
     this.eatSymbol(')');
-    this.output.push(`<symbol>)</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ')');
 
     this.eatSymbol('{');
-    this.output.push(`<symbol>{</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '{');
 
     this.compileStatements();
 
     this.eatSymbol('}');
-    this.output.push(`<symbol>}</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '}');
 
     this.output.push(`</whileStatement>`);
   }
@@ -387,14 +391,14 @@ class CompilationEngine {
     this.output.push(`<returnStatement>`);
 
     this.eatKeyword('return');
-    this.output.push(`<keyword>return</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'return');
 
     if (this.tokenizer.currentToken !== ';') {
       this.compileExpression();
     }
 
     this.eatSymbol(';');
-    this.output.push(`<symbol>;</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.output.push(`</returnStatement>`);
   }
@@ -408,35 +412,35 @@ class CompilationEngine {
     this.output.push(`<ifStatement>`);
 
     this.eatKeyword('if');
-    this.output.push(`<keyword>if</keyword>`);
+    this.writeXML(TOKENTYPE.KEYWORD, 'if');
 
     this.eatSymbol('(');
-    this.output.push(`<symbol>(</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '(');
 
     this.compileExpression();
 
     this.eatSymbol(')');
-    this.output.push(`<symbol>)</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, ')');
 
     this.eatSymbol('{');
-    this.output.push(`<symbol>{</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '{');
 
     this.compileStatements();
 
     this.eatSymbol('}');
-    this.output.push(`<symbol>}</symbol>`);
+    this.writeXML(TOKENTYPE.SYMBOL, '}');
 
     if (this.tokenizer.currentToken === 'else') {
       this.eatKeyword('else');
-      this.output.push(`<keyword>else</keyword>`);
+      this.writeXML(TOKENTYPE.KEYWORD, 'else');
 
       this.eatSymbol('{');
-      this.output.push(`<symbol>{</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '{');
 
       this.compileStatements();
 
       this.eatSymbol('}');
-      this.output.push(`<symbol>}</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '}');
     }
 
     this.output.push(`</ifStatement>`);
@@ -452,7 +456,7 @@ class CompilationEngine {
 
     while (OPS.has(this.tokenizer.currentToken)) {
       const op = this.eatSymbol();
-      this.output.push(`<symbol>${op}</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, op);
 
       this.compileTerm();
     }
@@ -469,54 +473,60 @@ class CompilationEngine {
     this.output.push(`<term>`);
 
     if (this.tokenizer.tokenType() === TOKENTYPE.INT_CONST) {
-      this.output.push(`<integerConstant>${this.eatIntConstant()}</integerConstant>`);
+      const ic = this.eatIntConstant();
+      this.writeXML(TOKENTYPE.INT_CONST, ic);
     } else if (this.tokenizer.tokenType() === TOKENTYPE.STRING_CONST) {
-      this.output.push(`<stringConstant>${this.eatStringConstant()}</stringConstant>`);
+      const sc = this.eatStringConstant();
+      this.writeXML(TOKENTYPE.STRING_CONST, sc);
     } else if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
-      this.output.push(`<keyword>${this.eatKeywordConstant()}</keyword>`);
+      const kwc = this.eatKeywordConstant();
+      this.writeXML(TOKENTYPE.KEYWORD, kwc);
     } else if (UNARYOPS.has(this.tokenizer.currentToken)) {
       // unaryOp term
-      this.output.push(`<symbol>${this.eatSymbol()}</symbol>`);
+      const sym = this.eatSymbol();
+      this.writeXML(TOKENTYPE.SYMBOL, sym);
       this.compileTerm();
     } else if (this.tokenizer.currentToken === '(') {
       // '(' expression ')'
       this.eatSymbol('(');
-      this.output.push(`<symbol>(</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, '(');
 
       this.compileExpression();
 
       this.eatSymbol(')');
-      this.output.push(`<symbol>)</symbol>`);
+      this.writeXML(TOKENTYPE.SYMBOL, ')');
     } else if (this.tokenizer.tokenType() === TOKENTYPE.IDENTIFIER) {
       // varName | varName '[' expression ']' | subroutineCall |
-      this.output.push(`<identifier>${this.eatIdentifier()}</identifier>`);
+      const varName = this.eatIdentifier();
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.currentToken === '[') {
         // varname '[' expression ']'
         this.eatSymbol('[');
-        this.output.push(`<symbol>[</symbol>`);
+        this.writeXML(TOKENTYPE.SYMBOL, '[');
 
         this.compileExpression();
 
         this.eatSymbol(']');
-        this.output.push(`<symbol>]</symbol>`);
+        this.writeXML(TOKENTYPE.SYMBOL, ']');
       } else if (this.tokenizer.currentToken === '(' || this.tokenizer.currentToken === '.') {
         // subroutineCall
         if (this.tokenizer.currentToken === '(') {
           this.eatSymbol('(');
-          this.output.push(`<symbol>(</symbol>`);
+          this.writeXML(TOKENTYPE.SYMBOL, '(');
         } else if (this.tokenizer.currentToken === '.') {
           this.eatSymbol('.');
-          this.output.push(`<symbol>.</symbol>`);
+          this.writeXML(TOKENTYPE.SYMBOL, '.');
           const sn = this.eatIdentifier();
-          this.output.push(`<identifier>${sn}</identifier>`);
+          this.writeXML(TOKENTYPE.IDENTIFIER, sn);
           this.eatSymbol('(');
-          this.output.push(`<symbol>(</symbol>`);
+          this.writeXML(TOKENTYPE.SYMBOL, '(');
         }
 
         this.compileExpressionList();
 
-        this.output.push(`<symbol>${this.eatSymbol(')')}</symbol>`);
+        this.eatSymbol(')');
+        this.writeXML(TOKENTYPE.SYMBOL, ')');
       }
     }
 
@@ -534,7 +544,7 @@ class CompilationEngine {
 
       while (this.tokenizer.currentToken === ',') {
         const sym = this.eatSymbol(',');
-        this.output.push(`<symbol>${sym}</symbol>`);
+        this.writeXML(TOKENTYPE.SYMBOL, sym);
         this.compileExpression();
       }
     }
@@ -554,7 +564,6 @@ class CompilationEngine {
       throw new Error(`Expected a keyword`);
     }
     const kw = this.tokenizer.keyWord();
-    // this.eat(str);
     this.mustMatch(expected, kw);
     this.tokenizer.advance();
     return kw;
@@ -565,10 +574,9 @@ class CompilationEngine {
       throw new Error(`Expected a symbol`);
     }
     const sym = this.tokenizer.symbol();
-    // this.eat(str);
     this.mustMatch(expected, sym);
     this.tokenizer.advance();
-    return sym;
+    return XML(sym);
   }
 
   eatIdentifier() {
@@ -606,8 +614,25 @@ class CompilationEngine {
     this.tokenizer.advance();
     return val;
   }
-}
 
-// const ce = new CompilationEngine('../ExpressionLessSquare/Main.jack');
+  // XML helper
+  writeXML(tt, value) {
+    let tokenClassification;
+
+    if (tt === TOKENTYPE.KEYWORD) {
+      tokenClassification = 'keyword';
+    } else if (tt === TOKENTYPE.SYMBOL) {
+      tokenClassification = 'symbol';
+    } else if (tt === TOKENTYPE.IDENTIFIER) {
+      tokenClassification = 'identifier';
+    } else if (tt === TOKENTYPE.INT_CONST) {
+      tokenClassification = 'integerConstant';
+    } else if (tt === TOKENTYPE.STRING_CONST) {
+      tokenClassification = 'stringConstant';
+    }
+
+    this.output.push(`<${tokenClassification}> ${value} </${tokenClassification}>`);
+  }
+}
 
 module.exports = { CompilationEngine };
