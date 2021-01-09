@@ -191,11 +191,6 @@ class CompilationEngine {
       varName: identifier
     */
 
-    // if (this.tokenizer.currentToken === ')') {
-    //   this.output.push(`<parameterList></parameterList>`);
-    //   return;
-    // }
-
     this.output.push(`<parameterList>`);
 
     // type varName, type varName ...
@@ -479,8 +474,50 @@ class CompilationEngine {
       this.output.push(`<stringConstant>${this.eatStringConstant()}</stringConstant>`);
     } else if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
       this.output.push(`<keyword>${this.eatKeywordConstant()}</keyword>`);
-    } else {
+    } else if (UNARYOPS.has(this.tokenizer.currentToken)) {
+      // unaryOp term
+      this.output.push(`<symbol>${this.eatSymbol()}</symbol>`);
+      this.compileTerm();
+    } else if (this.tokenizer.currentToken === '(') {
+      // '(' expression ')'
+      this.eatSymbol('(');
+      this.output.push(`<symbol>(</symbol>`);
+
+      this.compileExpression();
+
+      this.eatSymbol(')');
+      this.output.push(`<symbol>)</symbol>`);
+    } else if (this.tokenizer.tokenType() === TOKENTYPE.IDENTIFIER) {
+      // varName | varName '[' expression ']' | subroutineCall |
       this.output.push(`<identifier>${this.eatIdentifier()}</identifier>`);
+
+      if (this.tokenizer.currentToken === '[') {
+        // varname '[' expression ']'
+        this.eatSymbol('[');
+        this.output.push(`<symbol>[</symbol>`);
+
+        this.compileExpression();
+
+        this.eatSymbol(']');
+        this.output.push(`<symbol>]</symbol>`);
+      } else if (this.tokenizer.currentToken === '(' || this.tokenizer.currentToken === '.') {
+        // subroutineCall
+        if (this.tokenizer.currentToken === '(') {
+          this.eatSymbol('(');
+          this.output.push(`<symbol>(</symbol>`);
+        } else if (this.tokenizer.currentToken === '.') {
+          this.eatSymbol('.');
+          this.output.push(`<symbol>.</symbol>`);
+          const sn = this.eatIdentifier();
+          this.output.push(`<identifier>${sn}</identifier>`);
+          this.eatSymbol('(');
+          this.output.push(`<symbol>(</symbol>`);
+        }
+
+        this.compileExpressionList();
+
+        this.output.push(`<symbol>${this.eatSymbol(')')}</symbol>`);
+      }
     }
 
     this.output.push(`</term>`);
