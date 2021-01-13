@@ -18,15 +18,21 @@ class CompilationEngine {
 
     this.symbolTable = new SymbolTable();
 
-    this.xmloutput = [];
+    this.isCompilingDecl = false;
 
+    this.xmloutput = [];
     this.xmloutput.push('<class>');
+
     this.compileClass();
+
     this.xmloutput.push('</class>');
 
-    this.formatXMLOutput();
+    this.saveXmlOutput(output);
+  }
 
-    // fs.writeFileSync(output, this.xmloutput.join('\n') + '\n');
+  saveXmlOutput(output) {
+    this.formatXMLOutput();
+    fs.writeFileSync(output, this.xmloutput.join('\n') + '\n');
   }
 
   formatXMLOutput() {
@@ -88,6 +94,7 @@ class CompilationEngine {
       className: identifier
     */
 
+    this.isCompilingDecl = true;
     this.xmloutput.push(`<classVarDec>`);
     // static / field
     const varKind = this.eatKeyword();
@@ -107,9 +114,9 @@ class CompilationEngine {
     // varName(',' varName)*
     while (this.tokenizer.tokenType() === TOKENTYPE.IDENTIFIER) {
       const varName = this.eatIdentifier();
-      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
-
       this.symbolTable.define(varName, varType, varKind);
+
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.tokenType() === TOKENTYPE.SYMBOL && this.tokenizer.symbol() === ';') {
         break;
@@ -123,6 +130,7 @@ class CompilationEngine {
     this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.xmloutput.push(`</classVarDec>`);
+    this.isCompilingDecl = false;
   }
 
   compileSubroutine() {
@@ -142,10 +150,10 @@ class CompilationEngine {
 
     // constructor / function / method
     const funcType = this.eatKeyword();
-    this.writeXML(TOKENTYPE.KEYWORD, funcType);
     if (funcType === SUBR_KIND.METHOD) {
       this.symbolTable.define('this', this.className, VAR_KIND.ARG);
     }
+    this.writeXML(TOKENTYPE.KEYWORD, funcType);
 
     // return type
     let returnType = this.tokenizer.tokenType() === TOKENTYPE.KEYWORD;
@@ -201,6 +209,7 @@ class CompilationEngine {
       varName: identifier
     */
 
+    this.isCompilingDecl = true;
     this.xmloutput.push(`<parameterList>`);
 
     // type varName, type varName ...
@@ -216,9 +225,9 @@ class CompilationEngine {
       }
 
       const varName = this.eatIdentifier();
-      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
-
       this.symbolTable.define(varName, varType, VAR_KIND.ARG);
+
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.currentToken === ',') {
         this.eatSymbol(',');
@@ -227,6 +236,7 @@ class CompilationEngine {
     }
 
     this.xmloutput.push(`</parameterList>`);
+    this.isCompilingDecl = false;
   }
 
   compileVarDec() {
@@ -234,6 +244,7 @@ class CompilationEngine {
       varDec: 'var' type varName(',' varName)* ';'
     */
 
+    this.isCompilingDecl = true;
     this.xmloutput.push(`<varDec>`);
 
     this.eatKeyword('var');
@@ -254,9 +265,8 @@ class CompilationEngine {
     while (this.tokenizer.currentToken !== ';') {
       // varName
       const varName = this.eatIdentifier();
-      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
-
       this.symbolTable.define(varName, varType, VAR_KIND.VAR);
+      this.writeXML(TOKENTYPE.IDENTIFIER, varName);
 
       if (this.tokenizer.currentToken === ',') {
         this.eatSymbol(',');
@@ -268,6 +278,7 @@ class CompilationEngine {
     this.writeXML(TOKENTYPE.SYMBOL, ';');
 
     this.xmloutput.push(`</varDec>`);
+    this.isCompilingDecl = false;
   }
 
   compileStatements() {
@@ -631,6 +642,7 @@ class CompilationEngine {
   // XML helper
   writeXML(tt, value) {
     let tokenClassification;
+    let props = null;
 
     if (tt === TOKENTYPE.KEYWORD) {
       tokenClassification = 'keyword';
@@ -638,13 +650,35 @@ class CompilationEngine {
       tokenClassification = 'symbol';
     } else if (tt === TOKENTYPE.IDENTIFIER) {
       tokenClassification = 'identifier';
+      if (this.symbolTable.kindOf(value) !== VAR_KIND.NONE) {
+        props = {
+          type: this.symbolTable.typeOf(value),
+          kind: this.symbolTable.kindOf(value),
+          index: this.symbolTable.indexOf(value),
+          isDecl: this.isCompilingDecl
+        };
+      } else {
+        props = {
+          kind: 'classOrSubroutine'
+        };
+      }
     } else if (tt === TOKENTYPE.INT_CONST) {
       tokenClassification = 'integerConstant';
     } else if (tt === TOKENTYPE.STRING_CONST) {
       tokenClassification = 'stringConstant';
     }
 
-    this.xmloutput.push(`<${tokenClassification}> ${value} </${tokenClassification}>`);
+    if (props) {
+      let xmlProps = '';
+      xmlProps += 'type' in props ? `type="${props.type}" ` : '';
+      xmlProps += 'kind' in props ? `kind="${props.kind}" ` : '';
+      xmlProps += 'index' in props ? `index="${props.index}" ` : '';
+      xmlProps += 'isDecl' in props ? `${props.isDecl ? 'isDecl="1"' : 'isUsed="1"'}` : '';
+      xmlProps = xmlProps.trim();
+      this.xmloutput.push(`<${tokenClassification} ${xmlProps}> ${value} </${tokenClassification}>`);
+    } else {
+      this.xmloutput.push(`<${tokenClassification}> ${value} </${tokenClassification}>`);
+    }
   }
 }
 

@@ -2,19 +2,19 @@
  * maintains class and subroutine level sym table. For e.g.,
  *
  * Class level:
- * 	Name      |    Type   |  Kind     | # |
- * ----------------------------------------
- *   id       |    int    |  field    | 0 |
- *   owner    |    string |  field    | 1 |
- *   nAcc     |    int    |  static   | 0 |
+ * 	Name      |    Type   |  Kind     | index |
+ * --------------------------------------------
+ *   id       |    int    |  field    |   0   |
+ *   owner    |    string |  field    |   1   |
+ *   nAcc     |    int    |  static   |   0   |
  *
  * Subroutine level:
- *  Name      |    Type   |  Kind     | # |
+ *  Name      |    Type   |  Kind     | index |
  * ----------------------------------------
- *   this     | BankAcc   | argument  | 0 |
- *   sum      |    int    | argument  | 1 |
- *    i       |    int    |  var      | 0 |
- *    j       |    int    |  var      | 1 |
+ *   this     | BankAcc   | argument  |   0   |
+ *   sum      |    int    | argument  |   1   |
+ *    i       |    int    |  var      |   0   |
+ *    j       |    int    |  var      |   1   |
  * @class
  */
 
@@ -40,6 +40,7 @@ class SymbolTable {
       [VAR_KIND.STATIC]: 0,
       [VAR_KIND.FIELD]: 0
     };
+    this.startSubroutine();
   }
 
   /**
@@ -63,10 +64,10 @@ class SymbolTable {
    */
   define(name, type, kind) {
     if (kind === VAR_KIND.FIELD || kind === VAR_KIND.STATIC) {
-      this.classLevel[name] = { name, type, kind, '#': this.varCount(kind) };
+      this.classLevel[name] = { name, type, kind, index: this.varCount(kind) };
       this.classLevelCount[kind]++;
     } else if (kind === VAR_KIND.VAR || kind === VAR_KIND.ARG) {
-      this.subroutineLevel[name] = { name, type, kind, '#': this.varCount(kind) };
+      this.subroutineLevel[name] = { name, type, kind, index: this.varCount(kind) };
       this.subroutineLevelCount[kind]++;
     }
   }
@@ -77,11 +78,13 @@ class SymbolTable {
    * @returns {int}
    */
   varCount(kind) {
-    if (kind === VAR_KIND.FIELD || kind === VAR_KIND.STATIC) {
-      return this.classLevelCount[kind];
-    } else if (kind === VAR_KIND.VAR || kind === VAR_KIND.ARG) {
+    if (kind === VAR_KIND.VAR || kind === VAR_KIND.ARG) {
       return this.subroutineLevelCount[kind];
     }
+    if (kind === VAR_KIND.FIELD || kind === VAR_KIND.STATIC) {
+      return this.classLevelCount[kind];
+    }
+    return null;
   }
 
   /**
@@ -91,10 +94,11 @@ class SymbolTable {
    * @returns {kind} - STATIC, FIELD, ARG, VAR, NONE
    */
   kindOf(name) {
+    if (name in this.subroutineLevel) {
+      return this.subroutineLevel[name]['kind'];
+    }
     if (name in this.classLevel) {
-      return this.classLevel[name][kind];
-    } else if (name in this.subroutineLevel) {
-      return this.subroutineLevel[name][kind];
+      return this.classLevel[name]['kind'];
     }
     return VAR_KIND.NONE;
   }
@@ -105,11 +109,28 @@ class SymbolTable {
    * @returns {type} - the type of the identifier, for e.g., int, String, Point (custom type), ...
    */
   typeOf(name) {
-    if (name in this.classLevel) {
-      return this.classLevel[name][type];
-    } else if (name in this.subroutineLevel) {
-      return this.subroutineLevel[name][type];
+    if (name in this.subroutineLevel) {
+      return this.subroutineLevel[name]['type'];
     }
+    if (name in this.classLevel) {
+      return this.classLevel[name]['type'];
+    }
+    return null;
+  }
+
+  /**
+   * Returns the index assigned to the named identifier
+   * @param {string} name
+   * @returns {int}
+   */
+  indexOf(name) {
+    if (name in this.subroutineLevel) {
+      return this.subroutineLevel[name]['index'];
+    }
+    if (name in this.classLevel) {
+      return this.classLevel[name]['index'];
+    }
+    return null;
   }
 }
 
