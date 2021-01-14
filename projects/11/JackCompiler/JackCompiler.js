@@ -50,6 +50,6 @@ try {
 const output = input.map(f => f.replace(/\.jack$/i, '.vm'));
 
 input.forEach(f => {
-  const output = f.replace(/\.jack$/i, '.xml');
+  const output = f.replace(/\.jack$/i, '.vm');
   const parser = new CompilationEngine(f, output);
 });
