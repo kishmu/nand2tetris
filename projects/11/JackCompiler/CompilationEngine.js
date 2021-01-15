@@ -18,6 +18,9 @@ class CompilationEngine {
     // has nested expression list, so we use a stack
     this.nArgs = [];
 
+    // for generating unique labels
+    this.labelCount = 0;
+
     this.nLocals = 0;
 
     this.vmWriter = new VMWriter(output);
@@ -133,8 +136,6 @@ class CompilationEngine {
 
     this.eatSymbol(')');
 
-    this.vmWriter.writeFunction(`${this.className}.${this.subroutineName}`, this.symbolTable.varCount(VAR_KIND.ARG));
-
     // subroutineBody
     this.eatSymbol('{');
 
@@ -142,6 +143,8 @@ class CompilationEngine {
     while (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD && this.tokenizer.keyWord() === 'var') {
       this.compileVarDec();
     }
+
+    this.vmWriter.writeFunction(`${this.className}.${this.subroutineName}`, this.symbolTable.varCount(VAR_KIND.VAR));
 
     this.compileStatements();
 
@@ -302,19 +305,39 @@ class CompilationEngine {
 			whileStatement: 'while' '(' expression ')' '{' statements '}' 
     */
 
+    /**
+     * while (expression) statements ...
+     * label LOOP
+     * compiled (expression)
+     * not
+     * if-goto END_LOOP
+     * compiled (statements)
+     * goto LOOP
+     * label END_LOOP
+     */
     this.eatKeyword('while');
 
     this.eatSymbol('(');
 
+    const startLoopLabel = `LOOP_${this.labelCount++}`;
+    this.vmWriter.writeLabel(startLoopLabel);
+
     this.compileExpression();
 
     this.eatSymbol(')');
+
+    this.vmWriter.writeArithmetic(VM_UNARY_ARITHMETIC.NOT);
+    const endLoopLabel = `END_LOOP_${this.labelCount++}`;
+    this.vmWriter.writeIf(endLoopLabel);
 
     this.eatSymbol('{');
 
     this.compileStatements();
 
     this.eatSymbol('}');
+
+    this.vmWriter.writeGoto(startLoopLabel);
+    this.vmWriter.writeLabel(endLoopLabel);
   }
 
   compileReturn() {
@@ -339,6 +362,20 @@ class CompilationEngine {
                     ('else' '{' statements '}')?
     */
 
+    /** 
+     * src if (expresssion) (statements1 else (statement2)
+     * vm code :
+     * -------
+     * compiled (expression)
+       not
+       if-goto ELSE
+       compiled (statements1)
+       goto END_IF
+       label ELSE
+       compiled (statements2)
+      label END_IF
+     */
+
     this.eatKeyword('if');
 
     this.eatSymbol('(');
@@ -347,11 +384,21 @@ class CompilationEngine {
 
     this.eatSymbol(')');
 
+    this.vmWriter.writeArithmetic(VM_UNARY_ARITHMETIC.NOT);
+
+    const elseLabel = `ELSE_${this.labelCount++}`;
+    this.vmWriter.writeIf(elseLabel);
+
     this.eatSymbol('{');
 
     this.compileStatements();
 
     this.eatSymbol('}');
+
+    const endIfLabel = `END_IF_${this.labelCount++}`;
+    this.vmWriter.writeGoto(endIfLabel);
+
+    this.vmWriter.writeLabel(elseLabel);
 
     if (this.tokenizer.currentToken === 'else') {
       this.eatKeyword('else');
@@ -362,6 +409,8 @@ class CompilationEngine {
 
       this.eatSymbol('}');
     }
+
+    this.vmWriter.writeLabel(endIfLabel);
   }
 
   compileExpression() {
@@ -375,6 +424,7 @@ class CompilationEngine {
       const op = this.eatSymbol();
       this.compileTerm();
       if (op in VM_ARITHMETIC_FUNC) {
+        // for e.g., * translates to Math.multiply with 2 args
         this.vmWriter.writeCall(VM_ARITHMETIC_FUNC[op], 2);
       } else {
         this.vmWriter.writeArithmetic(VM_ARITHMETIC[op]);
@@ -396,6 +446,15 @@ class CompilationEngine {
       const sc = this.eatStringConstant();
     } else if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
       const kwc = this.eatKeywordConstant();
+      if (kwc === 'true') {
+        // -1
+        this.vmWriter.writePush(VM_SEGMENT.CONST, 1);
+        this.vmWriter.writeArithmetic(VM_UNARY_ARITHMETIC.NEG);
+      } else if (kwc === 'false' || kwc === 'null') {
+        this.vmWriter.writePush(VM_SEGMENT.CONST, 0);
+      } else if (kwc === 'this') {
+        //
+      }
     } else if (UNARYOPS.has(this.tokenizer.currentToken)) {
       // unaryOp term
       const sym = this.eatSymbol();

@@ -23,7 +23,9 @@ const VM_ARITHMETIC = {
 
 const VM_UNARY_ARITHMETIC = {
   '-': 'neg',
-  '~': 'not'
+  '~': 'not',
+  NEG: 'neg',
+  NOT: 'not'
 };
 
 const VM_ARITHMETIC_FUNC = {
