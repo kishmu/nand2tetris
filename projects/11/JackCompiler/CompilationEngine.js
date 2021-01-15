@@ -12,7 +12,12 @@ class CompilationEngine {
     this.subroutineName = '';
     this.subroutineReturnType = '';
     this.callFuncName = '';
-    this.nArgs = 0;
+
+    // Stack for counting # expressions in expression list
+    // for e.g., MyClass.someFunc(point.xyz(a, b), x, y);
+    // has nested expression list, so we use a stack
+    this.nArgs = [];
+
     this.nLocals = 0;
 
     this.vmWriter = new VMWriter(output);
@@ -262,7 +267,7 @@ class CompilationEngine {
     this.eatSymbol(')');
     this.eatSymbol(';');
 
-    this.vmWriter.writeCall(this.callFuncName, this.nArgs);
+    this.vmWriter.writeCall(this.callFuncName, this.nArgs.pop());
     this.vmWriter.writePop(VM_SEGMENT.TEMP, 0); // discard the return from 'do' as returns a void
   }
 
@@ -270,7 +275,6 @@ class CompilationEngine {
     /*
       letStatement: 'let' varName('[' expression ']')? '=' expression ';'
     */
-    this.xmloutput.push(`<letStatement>`);
 
     this.eatKeyword('let');
 
@@ -289,6 +293,8 @@ class CompilationEngine {
     this.compileExpression();
 
     this.eatSymbol(';');
+
+    this.vmWriter.writePop(this.symbolTable.kindOf(varName), this.symbolTable.indexOf(varName));
   }
 
   compileWhile() {
@@ -402,7 +408,7 @@ class CompilationEngine {
       this.eatSymbol(')');
     } else if (this.tokenizer.tokenType() === TOKENTYPE.IDENTIFIER) {
       // varName | varName '[' expression ']' | subroutineCall |
-      const varName = this.eatIdentifier();
+      let varName = this.eatIdentifier();
 
       if (this.tokenizer.currentToken === '[') {
         // varname '[' expression ']'
@@ -419,6 +425,7 @@ class CompilationEngine {
           this.eatSymbol('.');
 
           const sn = this.eatIdentifier();
+          varName = `${varName}.${sn}`;
 
           this.eatSymbol('(');
         }
@@ -426,6 +433,10 @@ class CompilationEngine {
         this.compileExpressionList();
 
         this.eatSymbol(')');
+        this.vmWriter.writeCall(varName, this.nArgs.pop());
+      } else {
+        // varName
+        this.vmWriter.writePush(this.symbolTable.kindOf(varName), this.symbolTable.indexOf(varName));
       }
     }
   }
@@ -435,16 +446,16 @@ class CompilationEngine {
       expressionList: (expression(',' expression)*)?
     */
 
-    this.nArgs = 0;
+    this.nArgs.push(0);
 
     if (this.tokenizer.currentToken !== ')') {
       this.compileExpression();
-      this.nArgs++;
+      this.nArgs[this.nArgs.length - 1]++;
 
       while (this.tokenizer.currentToken === ',') {
         const sym = this.eatSymbol(',');
         this.compileExpression();
-        this.nArgs++;
+        this.nArgs[this.nArgs.length - 1]++;
       }
     }
   }

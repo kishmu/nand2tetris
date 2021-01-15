@@ -13,8 +13,8 @@
  * ----------------------------------------
  *   this     | BankAcc   | argument  |   0   |
  *   sum      |    int    | argument  |   1   |
- *    i       |    int    |  var      |   0   |
- *    j       |    int    |  var      |   1   |
+ *    i       |    int    |  local    |   0   |
+ *    j       |    int    |  local    |   1   |
  * @class
  */
 
@@ -29,7 +29,7 @@ const VAR_KIND = {
   STATIC: 'static',
   FIELD: 'field',
   ARG: 'argument',
-  VAR: 'var',
+  VAR: 'local',
   NONE: -1
 };
 

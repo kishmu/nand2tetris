@@ -68,19 +68,25 @@ class VMWriter {
    * Writes a VM label command
    * @param {string} label
    */
-  writeLabel(label) {}
+  writeLabel(label) {
+    this.vmcode.push(`label ${label}`);
+  }
 
   /**
    * Writes a VM goto command
    * @param {string} label
    */
-  writeGoto(label) {}
+  writeGoto(label) {
+    this.vmcode.push(`goto ${label}`);
+  }
 
   /**
    * Writes a VM if-goto command
    * @param {string} label
    */
-  writeIf(label) {}
+  writeIf(label) {
+    this.vmcode.push(`if-goto ${label}`);
+  }
 
   /**
    * Writes a VM call command
