@@ -4,6 +4,14 @@ const { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS, XML_RESERVED_CHAR } =
 const { SymbolTable, VAR_KIND, SUBR_KIND } = require('./SymbolTable');
 const { VMWriter, VM_SEGMENT, VM_UNARY_ARITHMETIC, VM_ARITHMETIC, VM_ARITHMETIC_FUNC } = require('./VMWriter');
 
+/** map from symbol table to VM segment */
+const SYM_2_VMSEGMENT = {
+  [VAR_KIND.STATIC]: VM_SEGMENT.STATIC,
+  [VAR_KIND.FIELD]: VM_SEGMENT.THIS,
+  [VAR_KIND.ARG]: VM_SEGMENT.ARG,
+  [VAR_KIND.VAR]: VM_SEGMENT.LOCAL
+};
+
 /** Recursive top-down parser */
 class CompilationEngine {
   constructor(input, output) {
@@ -297,7 +305,7 @@ class CompilationEngine {
 
     this.eatSymbol(';');
 
-    this.vmWriter.writePop(this.symbolTable.kindOf(varName), this.symbolTable.indexOf(varName));
+    this.vmWriter.writePop(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
   }
 
   compileWhile() {
@@ -495,7 +503,7 @@ class CompilationEngine {
         this.vmWriter.writeCall(varName, this.nArgs.pop());
       } else {
         // varName
-        this.vmWriter.writePush(this.symbolTable.kindOf(varName), this.symbolTable.indexOf(varName));
+        this.vmWriter.writePush(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
       }
     }
   }
