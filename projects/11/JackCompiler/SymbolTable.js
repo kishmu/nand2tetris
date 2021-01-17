@@ -29,7 +29,7 @@ const VAR_KIND = {
   STATIC: 'static',
   FIELD: 'field',
   ARG: 'argument',
-  VAR: 'local',
+  VAR: 'var',
   NONE: -1
 };
 

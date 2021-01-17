@@ -288,9 +288,6 @@ class CompilationEngine {
     let subroutineName = null;
     if (this.tokenizer.currentToken === '(') {
       this.eatSymbol('(');
-
-      subroutineName = classOrVar;
-      classOrVar = this.className;
     } else if (this.tokenizer.currentToken === '.') {
       this.eatSymbol('.');
 
@@ -310,26 +307,24 @@ class CompilationEngine {
     // square.move() - calling some method of the square variable
     const FUNC_TYPE = { STATIC: 0, THIS_METHOD: 1, VAR_METHOD: 2 };
     let funcType = null;
-    if (classOrVar === this.className) {
+
+    if (classOrVar === 'this') {
       funcType = FUNC_TYPE.THIS_METHOD;
+      classOrVar = this.className;
+    } else if (!subroutineName) {
+      funcType = FUNC_TYPE.THIS_METHOD;
+      subroutineName = classOrVar;
+      classOrVar = this.className;
+    } else if (this.symbolTable.kindOf(classOrVar) === VAR_KIND.NONE) {
+      funcType = FUNC_TYPE.STATIC;
     } else {
-      // is it in the symbol table?
-      const instanceClass = this.symbolTable.typeOf(classOrVar);
-      if (!instanceClass) {
-        funcType = FUNC_TYPE.STATIC;
-      } else if (instanceClass === this.className) {
-        funcType = FUNC_TYPE.THIS_METHOD;
-      } else if (instanceClass) {
-        funcType = FUNC_TYPE.VAR_METHOD;
-      }
+      funcType = FUNC_TYPE.VAR_METHOD;
     }
 
     if (funcType === FUNC_TYPE.THIS_METHOD) {
       // set `this` = base address of this instance
       this.vmWriter.writePush(VM_SEGMENT.POINTER, 0);
       this.nArgs[this.nArgs.length - 1]++;
-
-      classOrVar = this.className;
     } else if (funcType === FUNC_TYPE.VAR_METHOD) {
       // set `this` = baseAddress of var
       this.vmWriter.writePush(
