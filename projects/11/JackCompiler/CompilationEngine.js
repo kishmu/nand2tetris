@@ -16,9 +16,6 @@ const SYM_2_VMSEGMENT = {
 class CompilationEngine {
   constructor(input, output) {
     this.className = '';
-    this.isCompilingDecl = false; // are we declaring or using a var
-    this.subroutineName = '';
-    this.subroutineReturnType = '';
 
     // Stack for counting # expressions in expression list
     // for e.g., MyClass.someFunc(point.xyz(a, b), x, y);
@@ -77,8 +74,6 @@ class CompilationEngine {
       className: identifier
     */
 
-    this.isCompilingDecl = true;
-
     // static / field
     const varKind = this.eatKeyword();
 
@@ -104,8 +99,6 @@ class CompilationEngine {
 
     // ;
     this.eatSymbol(';');
-
-    this.isCompilingDecl = false;
   }
 
   compileSubroutine() {
@@ -129,13 +122,13 @@ class CompilationEngine {
 
     // return type
     if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
-      this.subroutineReturnType = this.eatKeyword(['void', 'int', 'char', 'boolean']);
+      this.eatKeyword(['void', 'int', 'char', 'boolean']);
     } else {
       // className type
-      this.subroutineReturnType = this.eatIdentifier();
+      this.eatIdentifier();
     }
 
-    this.subroutineName = this.eatIdentifier();
+    const subroutineName = this.eatIdentifier();
 
     this.eatSymbol('(');
 
@@ -151,7 +144,7 @@ class CompilationEngine {
       this.compileVarDec();
     }
 
-    this.vmWriter.writeFunction(`${this.className}.${this.subroutineName}`, this.symbolTable.varCount(VAR_KIND.VAR));
+    this.vmWriter.writeFunction(`${this.className}.${subroutineName}`, this.symbolTable.varCount(VAR_KIND.VAR));
 
     if (funcType === SUBR_KIND.METHOD) {
       // anchor 'this' = argument 0
@@ -181,8 +174,6 @@ class CompilationEngine {
       varName: identifier
     */
 
-    this.isCompilingDecl = true;
-
     // type varName, type varName ...
     while (this.tokenizer.currentToken !== ')') {
       let varType = this.tokenizer.tokenType() === TOKENTYPE.KEYWORD;
@@ -200,16 +191,12 @@ class CompilationEngine {
         this.eatSymbol(',');
       }
     }
-
-    this.isCompilingDecl = false;
   }
 
   compileVarDec() {
     /*
       varDec: 'var' type varName(',' varName)* ';'
     */
-
-    this.isCompilingDecl = true;
 
     this.eatKeyword('var');
 
@@ -234,8 +221,6 @@ class CompilationEngine {
     }
 
     this.eatSymbol(';');
-
-    this.isCompilingDecl = false;
   }
 
   compileStatements() {
