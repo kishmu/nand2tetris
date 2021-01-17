@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const fs = require('fs');
-const { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS, XML_RESERVED_CHAR } = require('./JackTokenizer');
+const { JackTokenizer, TOKENTYPE, OPS, UNARYOPS, KWCONSTS } = require('./JackTokenizer');
 const { SymbolTable, VAR_KIND, SUBR_KIND } = require('./SymbolTable');
 const { VMWriter, VM_SEGMENT, VM_UNARY_ARITHMETIC, VM_ARITHMETIC, VM_ARITHMETIC_FUNC } = require('./VMWriter');
 
@@ -19,7 +19,6 @@ class CompilationEngine {
     this.isCompilingDecl = false; // are we declaring or using a var
     this.subroutineName = '';
     this.subroutineReturnType = '';
-    this.callFuncName = '';
 
     // Stack for counting # expressions in expression list
     // for e.g., MyClass.someFunc(point.xyz(a, b), x, y);
@@ -154,6 +153,18 @@ class CompilationEngine {
 
     this.vmWriter.writeFunction(`${this.className}.${this.subroutineName}`, this.symbolTable.varCount(VAR_KIND.VAR));
 
+    if (funcType === SUBR_KIND.METHOD) {
+      // anchor 'this' = argument 0
+      this.vmWriter.writePush(VM_SEGMENT.ARG, 0);
+      this.vmWriter.writePop(VM_SEGMENT.POINTER, 0);
+    } else if (funcType === SUBR_KIND.CONSTR) {
+      // allocate memory and anchor 'this'
+      const memSize = this.symbolTable.varCount(VAR_KIND.FIELD);
+      this.vmWriter.writePush(VM_SEGMENT.CONST, memSize);
+      this.vmWriter.writeCall(`Memory.alloc`, 1);
+      this.vmWriter.writePop(VM_SEGMENT.POINTER, 0);
+    }
+
     this.compileStatements();
 
     this.eatSymbol('}');
@@ -260,26 +271,78 @@ class CompilationEngine {
     this.eatKeyword('do');
 
     // subroutineName or (className|varName)
-    this.callFuncName = this.eatIdentifier();
+    let subrName = this.eatIdentifier();
 
+    this.compileCall(subrName);
+
+    this.eatSymbol(';');
+
+    this.vmWriter.writePop(VM_SEGMENT.TEMP, 0); // discard the return from 'do' as returns a void
+  }
+
+  /**
+   * it is called in two places - do someFunc() and in an expression like let x = someFunc()
+   * @param {string} classOrVar - this is the first identifier 'x' in x.someFunc()
+   */
+  compileCall(classOrVar) {
+    let subroutineName = null;
     if (this.tokenizer.currentToken === '(') {
       this.eatSymbol('(');
+
+      subroutineName = classOrVar;
+      classOrVar = this.className;
     } else if (this.tokenizer.currentToken === '.') {
       this.eatSymbol('.');
 
-      const subName = this.eatIdentifier();
+      subroutineName = this.eatIdentifier();
 
-      this.callFuncName = `${this.callFuncName}.${subName}`;
       this.eatSymbol('(');
     }
 
     this.compileExpressionList();
 
     this.eatSymbol(')');
-    this.eatSymbol(';');
 
-    this.vmWriter.writeCall(this.callFuncName, this.nArgs.pop());
-    this.vmWriter.writePop(VM_SEGMENT.TEMP, 0); // discard the return from 'do' as returns a void
+    // TO DO: this could be simplified
+    // Functions can be of types -
+    // Class.StaticFunction() - Static functions (including OS functions)
+    // this.method(), method() - these are identical. Calling some method of this class
+    // square.move() - calling some method of the square variable
+    const FUNC_TYPE = { STATIC: 0, THIS_METHOD: 1, VAR_METHOD: 2 };
+    let funcType = null;
+    if (classOrVar === this.className) {
+      funcType = FUNC_TYPE.THIS_METHOD;
+    } else {
+      // is it in the symbol table?
+      const instanceClass = this.symbolTable.typeOf(classOrVar);
+      if (!instanceClass) {
+        funcType = FUNC_TYPE.STATIC;
+      } else if (instanceClass === this.className) {
+        funcType = FUNC_TYPE.THIS_METHOD;
+      } else if (instanceClass) {
+        funcType = FUNC_TYPE.VAR_METHOD;
+      }
+    }
+
+    if (funcType === FUNC_TYPE.THIS_METHOD) {
+      // set `this` = base address of this instance
+      this.vmWriter.writePush(VM_SEGMENT.POINTER, 0);
+      this.nArgs[this.nArgs.length - 1]++;
+
+      classOrVar = this.className;
+    } else if (funcType === FUNC_TYPE.VAR_METHOD) {
+      // set `this` = baseAddress of var
+      this.vmWriter.writePush(
+        SYM_2_VMSEGMENT[this.symbolTable.kindOf(classOrVar)],
+        this.symbolTable.indexOf(classOrVar)
+      );
+      this.nArgs[this.nArgs.length - 1]++;
+
+      classOrVar = this.symbolTable.typeOf(classOrVar);
+    }
+
+    const functionName = `${classOrVar}.${subroutineName}`;
+    this.vmWriter.writeCall(functionName, this.nArgs.pop());
   }
 
   compileLet() {
@@ -461,7 +524,7 @@ class CompilationEngine {
       } else if (kwc === 'false' || kwc === 'null') {
         this.vmWriter.writePush(VM_SEGMENT.CONST, 0);
       } else if (kwc === 'this') {
-        //
+        this.vmWriter.writePush(VM_SEGMENT.POINTER, 0);
       }
     } else if (UNARYOPS.has(this.tokenizer.currentToken)) {
       // unaryOp term
@@ -486,21 +549,7 @@ class CompilationEngine {
         this.eatSymbol(']');
       } else if (this.tokenizer.currentToken === '(' || this.tokenizer.currentToken === '.') {
         // subroutineCall
-        if (this.tokenizer.currentToken === '(') {
-          this.eatSymbol('(');
-        } else if (this.tokenizer.currentToken === '.') {
-          this.eatSymbol('.');
-
-          const sn = this.eatIdentifier();
-          varName = `${varName}.${sn}`;
-
-          this.eatSymbol('(');
-        }
-
-        this.compileExpressionList();
-
-        this.eatSymbol(')');
-        this.vmWriter.writeCall(varName, this.nArgs.pop());
+        this.compileCall(varName);
       } else {
         // varName
         this.vmWriter.writePush(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
