@@ -13,6 +13,7 @@ const VM_SEGMENT = {
 
 const VM_ARITHMETIC = {
   '+': 'add',
+  ADD: 'add',
   '-': 'sub',
   '&': 'and',
   '|': 'or',

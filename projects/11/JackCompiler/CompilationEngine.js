@@ -334,12 +334,30 @@ class CompilationEngine {
 
     const varName = this.eatIdentifier();
 
+    let isArray = false;
     if (this.tokenizer.currentToken === '[') {
+      isArray = true;
+      // let a[i] = b[j]
+      // push a
+      // push i
+      // add
+      // push b
+      // push j
+      // add
+      // pop pointer 1
+      // push that 0
+      // pop temp 0 <== at this point stack's top = address of a[i] and temp[0] = b[j]
+      // pop pointer 1
+      // push temp 0
+      // pop that 0
       this.eatSymbol('[');
 
       this.compileExpression();
 
       this.eatSymbol(']');
+
+      this.vmWriter.writePush(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
+      this.vmWriter.writeArithmetic(VM_ARITHMETIC.ADD);
     }
 
     this.eatSymbol('=');
@@ -347,8 +365,14 @@ class CompilationEngine {
     this.compileExpression();
 
     this.eatSymbol(';');
-
-    this.vmWriter.writePop(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
+    if (isArray) {
+      this.vmWriter.writePop(VM_SEGMENT.TEMP, 0);
+      this.vmWriter.writePop(VM_SEGMENT.POINTER, 1);
+      this.vmWriter.writePush(VM_SEGMENT.TEMP, 0);
+      this.vmWriter.writePop(VM_SEGMENT.THAT, 0);
+    } else {
+      this.vmWriter.writePop(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
+    }
   }
 
   compileWhile() {
@@ -495,6 +519,12 @@ class CompilationEngine {
       this.vmWriter.writePush(VM_SEGMENT.CONST, ic);
     } else if (this.tokenizer.tokenType() === TOKENTYPE.STRING_CONST) {
       const sc = this.eatStringConstant();
+      this.vmWriter.writePush(VM_SEGMENT.CONST, sc.length);
+      this.vmWriter.writeCall('String.new', 1);
+      for (let i = 0; i < sc.length; ++i) {
+        this.vmWriter.writePush(VM_SEGMENT.CONST, sc.charCodeAt(i));
+        this.vmWriter.writeCall('String.appendChar', 2);
+      }
     } else if (this.tokenizer.tokenType() === TOKENTYPE.KEYWORD) {
       const kwc = this.eatKeywordConstant();
       if (kwc === 'true') {
@@ -522,11 +552,23 @@ class CompilationEngine {
 
       if (this.tokenizer.currentToken === '[') {
         // varname '[' expression ']'
+
+        // b[j]
+        // push b
+        // push j
+        // add
+        // pop pointer 1
+        // push that 0
         this.eatSymbol('[');
 
         this.compileExpression();
 
         this.eatSymbol(']');
+
+        this.vmWriter.writePush(SYM_2_VMSEGMENT[this.symbolTable.kindOf(varName)], this.symbolTable.indexOf(varName));
+        this.vmWriter.writeArithmetic(VM_ARITHMETIC.ADD);
+        this.vmWriter.writePop(VM_SEGMENT.POINTER, 1);
+        this.vmWriter.writePush(VM_SEGMENT.THAT, 0);
       } else if (this.tokenizer.currentToken === '(' || this.tokenizer.currentToken === '.') {
         // subroutineCall
         this.compileCall(varName);
