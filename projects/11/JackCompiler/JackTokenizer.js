@@ -38,10 +38,10 @@ const LexicalElements = {
     return this.symbol.has(s);
   },
   isIntegerConstant: function (s) {
-    return /[0-9]+/.test(s);
+    return /^[0-9]+$/.test(s);
   },
   isStringConstant: function (s) {
-    return /"[^"]*"/.test(s);
+    return /^"[^"]*"$/.test(s);
   },
   isIdentifier: function (s) {
     return /^[a-zA-Z_]\w*/.test(s);

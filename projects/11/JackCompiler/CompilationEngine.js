@@ -281,10 +281,6 @@ class CompilationEngine {
       this.eatSymbol('(');
     }
 
-    this.compileExpressionList();
-
-    this.eatSymbol(')');
-
     // TO DO: this could be simplified
     // Functions can be of types -
     // Class.StaticFunction() - Static functions (including OS functions)
@@ -309,20 +305,24 @@ class CompilationEngine {
     if (funcType === FUNC_TYPE.THIS_METHOD) {
       // set `this` = base address of this instance
       this.vmWriter.writePush(VM_SEGMENT.POINTER, 0);
-      this.nArgs[this.nArgs.length - 1]++;
     } else if (funcType === FUNC_TYPE.VAR_METHOD) {
       // set `this` = baseAddress of var
       this.vmWriter.writePush(
         SYM_2_VMSEGMENT[this.symbolTable.kindOf(classOrVar)],
         this.symbolTable.indexOf(classOrVar)
       );
-      this.nArgs[this.nArgs.length - 1]++;
 
       classOrVar = this.symbolTable.typeOf(classOrVar);
     }
 
+    this.compileExpressionList();
+
+    this.eatSymbol(')');
+
+    let nArgs = this.nArgs.pop();
+    nArgs = funcType !== FUNC_TYPE.STATIC ? nArgs + 1 : nArgs;
     const functionName = `${classOrVar}.${subroutineName}`;
-    this.vmWriter.writeCall(functionName, this.nArgs.pop());
+    this.vmWriter.writeCall(functionName, nArgs);
   }
 
   compileLet() {
