@@ -155,8 +155,6 @@ class Math {
             let yPlus2ToTheJSqr = yPlus2ToTheJ * yPlus2ToTheJ;
             if ((yPlus2ToTheJSqr > 0) & ((yPlus2ToTheJSqr < x) | (yPlus2ToTheJSqr = x))) {
                 let y = yPlus2ToTheJ;
-                do Output.printInt(y);
-                do Output.println();
             }
             let j = j - 1;
         }
