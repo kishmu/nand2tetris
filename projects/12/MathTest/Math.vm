@@ -244,11 +244,6 @@ goto IF_FALSE0
 label IF_TRUE0
 push local 2
 pop local 0
-push local 0
-call Output.printInt 1
-pop temp 0
-call Output.println 0
-pop temp 0
 label IF_FALSE0
 push local 1
 push constant 1
