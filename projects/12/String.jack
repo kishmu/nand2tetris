@@ -31,6 +31,7 @@ class String {
         if (maxLen > 0) {
             do strArr.dispose();
         }
+        do Memory.deAlloc(this);
         return;
     }
 

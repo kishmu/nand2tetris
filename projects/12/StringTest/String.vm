@@ -31,6 +31,9 @@ push this 0
 call Array.dispose 1
 pop temp 0
 label IF_FALSE0
+push pointer 0
+call Memory.deAlloc 1
+pop temp 0
 push constant 0
 return
 function String.length 0
